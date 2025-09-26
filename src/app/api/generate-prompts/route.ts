@@ -26,25 +26,27 @@ export async function POST(request: NextRequest) {
 
     console.log('🚀 Processing comprehensive brand and audience intelligence');
     
-    // Extract enhanced data structure
-    const enhancedData = answers.enhanced_data || {};
-    const productAssets = enhancedData.product_assets || {};
-    const audienceIntelligence = enhancedData.audience_intelligence || {};
+    // FIXED: Proper data extraction from enhanced structure
+        const enhancedData = answers.enhanced_data || {};
+        const productAssets = enhancedData.product_assets || {};
+        const audienceIntelligence = enhancedData.audience_intelligence || {};
 
-    const productName = productAssets.name || 'PRODUCT_NAME_MISSING';
-    const brandColors = productAssets.brand_colors || {};
-    const targetAges = audienceIntelligence.demographics?.age_ranges?.join(', ') || 'TARGET_AGE_MISSING';
-    const incomeGroups = audienceIntelligence.demographics?.income_levels?.join(', ') || 'INCOME_MISSING';
-    const coreValues = audienceIntelligence.psychographics?.core_values?.join(', ') || 'VALUES_MISSING';
+        // CRITICAL FIX: Extract product name correctly
+        const productName = productAssets.name || answers[1] || 'PRODUCT_NAME_MISSING';
+        const brandColors = productAssets.brand_colors || {};
+        const targetAges = audienceIntelligence.demographics?.age_ranges?.join(', ') || 'TARGET_AGE_MISSING';
+        const incomeGroups = audienceIntelligence.demographics?.income_levels?.join(', ') || 'INCOME_MISSING';
+        const coreValues = audienceIntelligence.psychographics?.core_values?.join(', ') || 'VALUES_MISSING';
 
-    console.log('📝 Key Elements for Claude:', {
-      productName,
-      targetAges,
-      incomeGroups,
-      coreValues,
-      primaryColor: brandColors.primary,
-      hasImage: !!productAssets.image
-    });
+        // DEBUG: Log what we extracted
+        console.log('📝 DEBUG - API Route - Extracted data:', {
+          productName,
+          targetAges,
+          incomeGroups,
+          coreValues,
+          primaryColor: brandColors.primary,
+          hasImage: !!productAssets.image
+        });
 
     // Check API key
     const apiKey = process.env.NEXT_PUBLIC_CLAUDE_API_KEY || process.env.CLAUDE_API_KEY;

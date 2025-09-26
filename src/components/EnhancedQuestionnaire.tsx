@@ -1,14 +1,94 @@
 import React, { useState } from 'react';
 import { ChevronRight, Check, Zap, Target, Palette, Users, TrendingUp, DollarSign, Brain, Package, Upload, MapPin, Heart, ShoppingBag } from 'lucide-react';
+import Image from 'next/image';
+
+// Define proper TypeScript interfaces
+interface QuestionOption {
+  value: string;
+  label: string;
+  positioning?: string;
+  preview?: string;
+}
+
+interface Question {
+  id: number;
+  category: string;
+  title: string;
+  question: string;
+  type: string;
+  icon: React.ReactElement;
+  options?: QuestionOption[];
+  max_selections?: number;
+  placeholder?: string;
+  followUp?: string;
+}
+
+interface AnswerData {
+  [key: number]: string | string[] | {
+    product_name?: string;
+    product_description?: string;
+    product_category?: string;
+    product_image?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    accent_color?: string;
+    brand_font?: string;
+    age_ranges?: string[];
+    income_levels?: string[];
+    core_values?: string[];
+    research_behavior?: string;
+    media_consumption?: string[];
+  };
+}
+
+interface EnhancedData {
+  product_assets: {
+    name: string;
+    category: string;
+    description: string;
+    image: string | null;
+    brand_colors: {
+      primary: string;
+      secondary: string;
+      accent: string;
+    };
+    typography: string;
+  };
+  audience_intelligence: {
+    demographics: {
+      age_ranges: string[];
+      income_levels: string[];
+      lifestyle_profile: string;
+    };
+    psychographics: {
+      core_values: string[];
+      lifestyle_stage: string;
+    };
+    behavioral: {
+      research_behavior: string;
+      media_consumption: string[];
+    };
+  };
+  brand_strategy: {
+    personality: string;
+    competitive_position: string;
+    visual_style: string;
+    campaign_objective: string;
+  };
+  psychology_insights: {
+    purchase_process: string;
+    value_proposition: string;
+  };
+}
 
 const EnhancedQuestionnaire = () => {
   const [currentQuestion, setCurrentQuestion] = useState(1);
-  const [answers, setAnswers] = useState<Record<number, any>>({});
+  const [answers, setAnswers] = useState<AnswerData>({});
   const [isComplete, setIsComplete] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
-  const questions = [
+  const questions: Question[] = [
     {
       id: 1,
       category: "Product Intelligence",
@@ -122,28 +202,30 @@ const EnhancedQuestionnaire = () => {
 
   const currentQuestionData = questions[currentQuestion - 1];
 
-  const handleResponse = (questionId: number, value: any) => {
+  const handleResponse = (questionId: number, value: string | string[]) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
     
-    if (currentQuestionData.type === 'text_with_choices' && value.length > 50 && !showFollowUp) {
+    if (currentQuestionData.type === 'text_with_choices' && typeof value === 'string' && value.length > 50 && !showFollowUp) {
       setShowFollowUp(true);
     }
   };
 
-  const handleFieldChange = (questionId: number, fieldName: string, value: any) => {
+  const handleFieldChange = (questionId: number, fieldName: string, value: string) => {
     setAnswers(prev => ({
       ...prev,
       [questionId]: {
-        ...prev[questionId],
+        ...(typeof prev[questionId] === 'object' && !Array.isArray(prev[questionId]) ? prev[questionId] : {}),
         [fieldName]: value
       }
     }));
   };
 
   const handleMultiSelectChange = (questionId: number, fieldName: string, optionValue: string, maxSelections?: number) => {
-    const currentSelections = answers[questionId]?.[fieldName] || [];
+    const currentAnswer = answers[questionId];
+    const currentField = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.[fieldName as keyof typeof currentAnswer]) || [];
+    const currentSelections = Array.isArray(currentField) ? currentField : [];
     const isSelected = currentSelections.includes(optionValue);
-    let newSelections;
+    let newSelections: string[];
     
     if (isSelected) {
       newSelections = currentSelections.filter((item: string) => item !== optionValue);
@@ -153,7 +235,7 @@ const EnhancedQuestionnaire = () => {
       return;
     }
     
-    handleFieldChange(questionId, fieldName, newSelections);
+    handleFieldChange(questionId, fieldName, newSelections as unknown as string);
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,13 +256,31 @@ const EnhancedQuestionnaire = () => {
       setCurrentQuestion(currentQuestion + 1);
       setShowFollowUp(false);
     } else {
-      // CORRECTED: Better data structure mapping
-      const productAssets = answers[1] || {};
-      const audienceData = answers[3] || {};
+      // Process and save data
+      console.log('🔍 DEBUG - Raw answers before processing:', answers);
+      
+      const productAssets = (typeof answers[1] === 'object' && !Array.isArray(answers[1])) ? answers[1] : {};
+      const audienceData = (typeof answers[3] === 'object' && !Array.isArray(answers[3])) ? answers[3] : {};
+      
+      const productName = productAssets?.product_name || 'Product Name Missing';
+      const productDescription = productAssets?.product_description || 'Description Missing';
+      const productCategory = productAssets?.product_category || 'Category Missing';
+      
+      console.log('🏷️ DEBUG - Extracted product name:', productName);
+      
+      if (!productAssets?.product_name) {
+        alert('Product name is required. Please go back and fill it in.');
+        return;
+      }
+      
+      if (!productAssets?.product_description) {
+        alert('Product description is required. Please go back and fill it in.');
+        return;
+      }
       
       const enhancedAnswers = {
-        // Legacy compatibility for existing brief page
-        1: productAssets.product_description || '',
+        // Legacy compatibility
+        1: productDescription,
         2: answers[2] || '',
         3: answers[5] || '',
         4: answers[4] || '',
@@ -189,51 +289,58 @@ const EnhancedQuestionnaire = () => {
         7: answers[7] || '',
         8: answers[8] || '',
         
-        // CORRECTED: Enhanced structure with proper data mapping
+        // Enhanced structure
         enhanced_data: {
           product_assets: {
-            name: productAssets.product_name,
-            category: productAssets.product_category,
-            description: productAssets.product_description,
-            image: productAssets.product_image,
+            name: productName,
+            category: productCategory,
+            description: productDescription,
+            image: productAssets?.product_image || null,
             brand_colors: {
-              primary: productAssets.primary_color || '#000000',
-              secondary: productAssets.secondary_color || '#FFFFFF',
-              accent: productAssets.accent_color || '#D4AF37'
+              primary: productAssets?.primary_color || '#000000',
+              secondary: productAssets?.secondary_color || '#FFFFFF',
+              accent: productAssets?.accent_color || '#D4AF37'
             },
-            typography: productAssets.brand_font
+            typography: productAssets?.brand_font || 'Default Typography'
           },
           audience_intelligence: {
             demographics: {
-              age_ranges: audienceData.age_ranges || [],
-              income_levels: audienceData.income_levels || [], // Multiple income brackets
-              lifestyle_profile: audienceData.lifestyle_profile
+              age_ranges: (typeof audienceData === 'object' && audienceData?.age_ranges) ? audienceData.age_ranges : [],
+              income_levels: (typeof audienceData === 'object' && audienceData?.income_levels) ? audienceData.income_levels : [],
+              lifestyle_profile: 'Not specified'
             },
             psychographics: {
-              core_values: audienceData.core_values || [],
-              lifestyle_stage: audienceData.lifestyle_stage
+              core_values: (typeof audienceData === 'object' && audienceData?.core_values) ? audienceData.core_values : [],
+              lifestyle_stage: 'Not specified'
             },
             behavioral: {
-              research_behavior: audienceData.research_behavior,
-              media_consumption: audienceData.media_consumption || []
+              research_behavior: (typeof audienceData === 'object' && audienceData?.research_behavior) ? audienceData.research_behavior : 'Not specified',
+              media_consumption: (typeof audienceData === 'object' && audienceData?.media_consumption) ? audienceData.media_consumption : []
             }
           },
           brand_strategy: {
-            personality: answers[2],
-            competitive_position: answers[6],
-            visual_style: answers[7],
-            campaign_objective: answers[8]
+            personality: typeof answers[2] === 'string' ? answers[2] : 'Not specified',
+            competitive_position: typeof answers[6] === 'string' ? answers[6] : 'Not specified',
+            visual_style: typeof answers[7] === 'string' ? answers[7] : 'Not specified',
+            campaign_objective: typeof answers[8] === 'string' ? answers[8] : 'Not specified'
           },
           psychology_insights: {
-            purchase_process: answers[5],
-            value_proposition: answers[4]
+            purchase_process: typeof answers[5] === 'string' ? answers[5] : 'Not specified',
+            value_proposition: typeof answers[4] === 'string' ? answers[4] : 'Not specified'
           }
-        }
+        } as EnhancedData
       };
       
-      console.log('💾 Saving enhanced answers:', enhancedAnswers);
-      localStorage.setItem('questionnaireAnswers', JSON.stringify(enhancedAnswers));
-      localStorage.setItem('questionnaireCompleted', 'true');
+      try {
+        localStorage.setItem('questionnaireAnswers', JSON.stringify(enhancedAnswers));
+        localStorage.setItem('questionnaireCompleted', 'true');
+        console.log('✅ DEBUG - Data saved to localStorage successfully');
+      } catch (error) {
+        console.error('❌ DEBUG - Failed to save to localStorage:', error);
+        alert('Failed to save questionnaire data. Please try again.');
+        return;
+      }
+      
       setIsComplete(true);
       setTimeout(() => {
         window.location.href = '/brief';
@@ -250,12 +357,16 @@ const EnhancedQuestionnaire = () => {
 
   const isFormValid = () => {
     if (currentQuestionData.type === 'comprehensive_product') {
-      const currentAnswers = answers[currentQuestion] || {};
+      const currentAnswer = answers[currentQuestion];
+      const currentAnswers = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer)) ? currentAnswer : {};
       return currentAnswers.product_name && currentAnswers.product_description && currentAnswers.product_category;
     }
     if (currentQuestionData.type === 'audience_profiling') {
-      const currentAnswers = answers[currentQuestion] || {};
-      return currentAnswers.age_ranges?.length > 0 && currentAnswers.income_levels?.length > 0 && currentAnswers.core_values?.length > 0;
+      const currentAnswer = answers[currentQuestion];
+      const currentAnswers = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer)) ? currentAnswer : {};
+      return (currentAnswers.age_ranges as string[] | undefined)?.length && 
+             (currentAnswers.income_levels as string[] | undefined)?.length && 
+             (currentAnswers.core_values as string[] | undefined)?.length;
     }
     return !!answers[currentQuestion];
   };
@@ -354,7 +465,9 @@ const EnhancedQuestionnaire = () => {
                     fontSize: 'var(--font-size-base)'
                   }}
                   placeholder="e.g., TaskMaster Pro, Colgate Total Advanced, Marketing Mastery Course"
-                  value={answers[1]?.product_name || ''}
+                  value={
+                    (typeof answers[1] === 'object' && !Array.isArray(answers[1]) && answers[1]?.product_name) || ''
+                  }
                   onChange={(e) => handleFieldChange(1, 'product_name', e.target.value)}
                 />
               </div>
@@ -379,10 +492,12 @@ const EnhancedQuestionnaire = () => {
                   <label htmlFor="product-image-upload" className="cursor-pointer">
                     {uploadedImage ? (
                       <div className="space-y-4">
-                        <img 
+                        <Image 
                           src={uploadedImage} 
                           alt="Product preview" 
-                          className="w-32 h-32 object-cover rounded-lg mx-auto border-2"
+                          width={128}
+                          height={128}
+                          className="object-cover rounded-lg mx-auto border-2"
                           style={{ borderColor: 'var(--brand-gold)' }}
                         />
                         <p className="text-body font-medium" style={{ color: 'var(--brand-gold)' }}>
@@ -419,35 +534,40 @@ const EnhancedQuestionnaire = () => {
                     { name: 'primary_color', label: 'Primary', default: '#000000' },
                     { name: 'secondary_color', label: 'Secondary', default: '#FFFFFF' },
                     { name: 'accent_color', label: 'Accent', default: '#D4AF37' }
-                  ].map((colorField) => (
-                    <div key={colorField.name} className="space-y-2">
-                      <label className="text-body font-medium" style={{ color: 'var(--text-secondary)' }}>
-                        {colorField.label}
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={answers[1]?.[colorField.name] || colorField.default}
-                          onChange={(e) => handleFieldChange(1, colorField.name, e.target.value)}
-                          className="w-12 h-12 rounded-lg border-2 cursor-pointer"
-                          style={{ borderColor: 'var(--surface-elevated)' }}
-                        />
-                        <input
-                          type="text"
-                          value={answers[1]?.[colorField.name] || colorField.default}
-                          onChange={(e) => handleFieldChange(1, colorField.name, e.target.value)}
-                          className="flex-1 px-3 py-2 rounded-lg border-2"
-                          style={{
-                            background: 'var(--surface-secondary)',
-                            borderColor: 'var(--surface-elevated)',
-                            color: 'var(--text-primary)',
-                            fontSize: 'var(--font-size-sm)'
-                          }}
-                          placeholder="#000000"
-                        />
+                  ].map((colorField) => {
+                    const currentAnswer = answers[1];
+                    const colorValue = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.[colorField.name as keyof typeof currentAnswer]) || colorField.default;
+                    
+                    return (
+                      <div key={colorField.name} className="space-y-2">
+                        <label className="text-body font-medium" style={{ color: 'var(--text-secondary)' }}>
+                          {colorField.label}
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="color"
+                            value={typeof colorValue === 'string' ? colorValue : colorField.default}
+                            onChange={(e) => handleFieldChange(1, colorField.name, e.target.value)}
+                            className="w-12 h-12 rounded-lg border-2 cursor-pointer"
+                            style={{ borderColor: 'var(--surface-elevated)' }}
+                          />
+                          <input
+                            type="text"
+                            value={typeof colorValue === 'string' ? colorValue : colorField.default}
+                            onChange={(e) => handleFieldChange(1, colorField.name, e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-lg border-2"
+                            style={{
+                              background: 'var(--surface-secondary)',
+                              borderColor: 'var(--surface-elevated)',
+                              color: 'var(--text-primary)',
+                              fontSize: 'var(--font-size-sm)'
+                            }}
+                            placeholder="#000000"
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -466,7 +586,9 @@ const EnhancedQuestionnaire = () => {
                     fontSize: 'var(--font-size-base)'
                   }}
                   placeholder="e.g., Helvetica Bold, Montserrat, or describe your logo font style"
-                  value={answers[1]?.brand_font || ''}
+                  value={
+                    (typeof answers[1] === 'object' && !Array.isArray(answers[1]) && answers[1]?.brand_font) || ''
+                  }
                   onChange={(e) => handleFieldChange(1, 'brand_font', e.target.value)}
                 />
               </div>
@@ -491,7 +613,9 @@ const EnhancedQuestionnaire = () => {
                       paddingRight: '50px',
                       height: '56px'
                     }}
-                    value={answers[1]?.product_category || ''}
+                    value={
+                      (typeof answers[1] === 'object' && !Array.isArray(answers[1]) && answers[1]?.product_category) || ''
+                    }
                     onChange={(e) => handleFieldChange(1, 'product_category', e.target.value)}
                   >
                     <option value="">Select specific product type...</option>
@@ -545,7 +669,9 @@ const EnhancedQuestionnaire = () => {
                 <textarea
                   className="input-luxury w-full"
                   placeholder="Brief description of what your product does and key benefits..."
-                  value={answers[1]?.product_description || ''}
+                  value={
+                    (typeof answers[1] === 'object' && !Array.isArray(answers[1]) && answers[1]?.product_description) || ''
+                  }
                   onChange={(e) => handleFieldChange(1, 'product_description', e.target.value)}
                   rows={4}
                 />
@@ -574,23 +700,35 @@ const EnhancedQuestionnaire = () => {
                       { value: "millennial", label: "Millennials (27-42): Career-focused, tech-savvy" },
                       { value: "gen_x", label: "Gen X (43-58): Established, family-oriented" },
                       { value: "boomer", label: "Boomers (59+): Experienced, value-conscious" }
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleMultiSelectChange(3, 'age_ranges', option.value, 4)}
-                        className={`choice-option scale-luxury text-left ${answers[3]?.age_ranges?.includes(option.value) ? 'selected' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-body font-medium">{option.label}</span>
-                          {answers[3]?.age_ranges?.includes(option.value) && (
-                            <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                    ].map((option) => {
+                      const currentAnswer = answers[3];
+                      const ageRanges = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.age_ranges) || [];
+                      const isSelected = Array.isArray(ageRanges) && ageRanges.includes(option.value);
+
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => handleMultiSelectChange(3, 'age_ranges', option.value, 4)}
+                          className={`choice-option scale-luxury text-left ${isSelected ? 'selected' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-body font-medium">{option.label}</span>
+                            {isSelected && (
+                              <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="text-caption text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    Selected: {answers[3]?.age_ranges?.length || 0} age groups
+                    Selected: {
+                      (() => {
+                        const currentAnswer = answers[3];
+                        const ageRanges = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.age_ranges) || [];
+                        return Array.isArray(ageRanges) ? ageRanges.length : 0;
+                      })()
+                    } age groups
                   </p>
                 </div>
 
@@ -601,27 +739,39 @@ const EnhancedQuestionnaire = () => {
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {[
-                      { value: "budget_conscious", label: "Budget-Conscious ($25-50k)", sensitivity: "high" },
-                      { value: "middle_market", label: "Middle Market ($50-100k)", sensitivity: "moderate" },
-                      { value: "affluent", label: "Affluent ($100-200k)", sensitivity: "low" },
-                      { value: "luxury", label: "Luxury Market ($200k+)", sensitivity: "minimal" }
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleMultiSelectChange(3, 'income_levels', option.value, 4)}
-                        className={`choice-option scale-luxury text-left ${answers[3]?.income_levels?.includes(option.value) ? 'selected' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-body font-medium">{option.label}</span>
-                          {answers[3]?.income_levels?.includes(option.value) && (
-                            <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                      { value: "budget_conscious", label: "Budget-Conscious ($25-50k)" },
+                      { value: "middle_market", label: "Middle Market ($50-100k)" },
+                      { value: "affluent", label: "Affluent ($100-200k)" },
+                      { value: "luxury", label: "Luxury Market ($200k+)" }
+                    ].map((option) => {
+                      const currentAnswer = answers[3];
+                      const incomeLevels = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.income_levels) || [];
+                      const isSelected = Array.isArray(incomeLevels) && incomeLevels.includes(option.value);
+
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => handleMultiSelectChange(3, 'income_levels', option.value, 4)}
+                          className={`choice-option scale-luxury text-left ${isSelected ? 'selected' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-body font-medium">{option.label}</span>
+                            {isSelected && (
+                              <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="text-caption text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    Selected: {answers[3]?.income_levels?.length || 0} income brackets
+                    Selected: {
+                      (() => {
+                        const currentAnswer = answers[3];
+                        const incomeLevels = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.income_levels) || [];
+                        return Array.isArray(incomeLevels) ? incomeLevels.length : 0;
+                      })()
+                    } income brackets
                   </p>
                 </div>
               </div>
@@ -647,27 +797,40 @@ const EnhancedQuestionnaire = () => {
                       { value: "convenience_efficiency", label: "Convenience and time efficiency" },
                       { value: "creativity_expression", label: "Creative expression and uniqueness" },
                       { value: "innovation_technology", label: "Latest technology and innovation" }
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleMultiSelectChange(3, 'core_values', option.value, 3)}
-                        className={`choice-option scale-luxury text-left ${answers[3]?.core_values?.includes(option.value) ? 'selected' : ''}`}
-                        disabled={!answers[3]?.core_values?.includes(option.value) && (answers[3]?.core_values?.length >= 3)}
-                        style={{
-                          opacity: (!answers[3]?.core_values?.includes(option.value) && (answers[3]?.core_values?.length >= 3)) ? 0.5 : 1
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-body font-medium">{option.label}</span>
-                          {answers[3]?.core_values?.includes(option.value) && (
-                            <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                    ].map((option) => {
+                      const currentAnswer = answers[3];
+                      const coreValues = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.core_values) || [];
+                      const isSelected = Array.isArray(coreValues) && coreValues.includes(option.value);
+                      const isDisabled = !isSelected && Array.isArray(coreValues) && coreValues.length >= 3;
+
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => handleMultiSelectChange(3, 'core_values', option.value, 3)}
+                          className={`choice-option scale-luxury text-left ${isSelected ? 'selected' : ''}`}
+                          disabled={isDisabled}
+                          style={{
+                            opacity: isDisabled ? 0.5 : 1
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-body font-medium">{option.label}</span>
+                            {isSelected && (
+                              <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="text-caption text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    Selected: {answers[3]?.core_values?.length || 0}/3 core values
+                    Selected: {
+                      (() => {
+                        const currentAnswer = answers[3];
+                        const coreValues = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.core_values) || [];
+                        return Array.isArray(coreValues) ? coreValues.length : 0;
+                      })()
+                    }/3 core values
                   </p>
                 </div>
               </div>
@@ -689,15 +852,21 @@ const EnhancedQuestionnaire = () => {
                       { value: "review_reader", label: "Read reviews and compare a few options" },
                       { value: "recommendation_follower", label: "Follow trusted recommendations quickly" },
                       { value: "impulse_buyer", label: "Buy quickly when they see value" }
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleFieldChange(3, 'research_behavior', option.value)}
-                        className={`choice-option scale-luxury ${answers[3]?.research_behavior === option.value ? 'selected' : ''}`}
-                      >
-                        <span className="text-body font-medium">{option.label}</span>
-                      </button>
-                    ))}
+                    ].map((option) => {
+                      const currentAnswer = answers[3];
+                      const researchBehavior = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.research_behavior);
+                      const isSelected = researchBehavior === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => handleFieldChange(3, 'research_behavior', option.value)}
+                          className={`choice-option scale-luxury ${isSelected ? 'selected' : ''}`}
+                        >
+                          <span className="text-body font-medium">{option.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -714,23 +883,35 @@ const EnhancedQuestionnaire = () => {
                       { value: "traditional_media", label: "TV, radio, print media" },
                       { value: "podcast_audio", label: "Podcasts and audio content" },
                       { value: "linkedin_professional", label: "LinkedIn and professional networks" }
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => handleMultiSelectChange(3, 'media_consumption', option.value, 7)}
-                        className={`choice-option scale-luxury text-left ${answers[3]?.media_consumption?.includes(option.value) ? 'selected' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-body font-medium">{option.label}</span>
-                          {answers[3]?.media_consumption?.includes(option.value) && (
-                            <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                    ].map((option) => {
+                      const currentAnswer = answers[3];
+                      const mediaConsumption = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.media_consumption) || [];
+                      const isSelected = Array.isArray(mediaConsumption) && mediaConsumption.includes(option.value);
+
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => handleMultiSelectChange(3, 'media_consumption', option.value, 7)}
+                          className={`choice-option scale-luxury text-left ${isSelected ? 'selected' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-body font-medium">{option.label}</span>
+                            {isSelected && (
+                              <Check className="w-5 h-5" style={{ color: 'var(--brand-charcoal)' }} />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="text-caption text-center" style={{ color: 'var(--text-tertiary)' }}>
-                    Selected: {answers[3]?.media_consumption?.length || 0} media channels
+                    Selected: {
+                      (() => {
+                        const currentAnswer = answers[3];
+                        const mediaConsumption = (typeof currentAnswer === 'object' && !Array.isArray(currentAnswer) && currentAnswer?.media_consumption) || [];
+                        return Array.isArray(mediaConsumption) ? mediaConsumption.length : 0;
+                      })()
+                    } media channels
                   </p>
                 </div>
               </div>
@@ -740,7 +921,7 @@ const EnhancedQuestionnaire = () => {
           {/* Single Choice Questions */}
           {currentQuestionData.type === 'single_choice' && (
             <div className="grid gap-4">
-              {currentQuestionData.options?.map((option: any) => (
+              {currentQuestionData.options?.map((option: QuestionOption) => (
                 <button
                   key={option.value}
                   onClick={() => handleResponse(currentQuestionData.id, option.value)}
@@ -758,46 +939,49 @@ const EnhancedQuestionnaire = () => {
           {/* Multiple Choice */}
           {currentQuestionData.type === 'multiple_choice' && (
             <div className="grid gap-4">
-              {currentQuestionData.options?.map((option: any) => (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    const currentSelections = answers[currentQuestionData.id] || [];
-                    const isSelected = currentSelections.includes(option.value);
-                    let newSelections;
-                    
-                    if (isSelected) {
-                      newSelections = currentSelections.filter((item: string) => item !== option.value);
-                    } else if (currentSelections.length < (currentQuestionData.max_selections || 3)) {
-                      newSelections = [...currentSelections, option.value];
-                    } else {
-                      return;
-                    }
-                    
-                    handleResponse(currentQuestionData.id, newSelections);
-                  }}
-                  className={`choice-option scale-luxury ${answers[currentQuestionData.id]?.includes(option.value) ? 'selected' : ''}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-body-large font-semibold mb-1">{option.label}</div>
-                      <div className="text-caption" style={{ color: 'var(--text-tertiary)' }}>
-                        {option.positioning}
+              {currentQuestionData.options?.map((option: QuestionOption) => {
+                const currentSelections = answers[currentQuestionData.id] as string[] || [];
+                const isSelected = currentSelections.includes(option.value);
+                
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      let newSelections: string[];
+                      
+                      if (isSelected) {
+                        newSelections = currentSelections.filter((item: string) => item !== option.value);
+                      } else if (currentSelections.length < (currentQuestionData.max_selections || 3)) {
+                        newSelections = [...currentSelections, option.value];
+                      } else {
+                        return;
+                      }
+                      
+                      handleResponse(currentQuestionData.id, newSelections);
+                    }}
+                    className={`choice-option scale-luxury ${isSelected ? 'selected' : ''}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-body-large font-semibold mb-1">{option.label}</div>
+                        <div className="text-caption" style={{ color: 'var(--text-tertiary)' }}>
+                          {option.positioning}
+                        </div>
                       </div>
+                      {isSelected && (
+                        <Check className="w-6 h-6" style={{ color: 'var(--brand-charcoal)' }} />
+                      )}
                     </div>
-                    {answers[currentQuestionData.id]?.includes(option.value) && (
-                      <Check className="w-6 h-6" style={{ color: 'var(--brand-charcoal)' }} />
-                    )}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
 
           {/* Visual Choice */}
           {currentQuestionData.type === 'visual_choice' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {currentQuestionData.options?.map((option: any) => (
+              {currentQuestionData.options?.map((option: QuestionOption) => (
                 <button
                   key={option.value}
                   onClick={() => handleResponse(currentQuestionData.id, option.value)}
@@ -823,7 +1007,7 @@ const EnhancedQuestionnaire = () => {
               <textarea
                 className="input-luxury w-full"
                 placeholder={currentQuestionData.placeholder}
-                value={answers[currentQuestionData.id] || ''}
+                value={typeof answers[currentQuestionData.id] === 'string' ? answers[currentQuestionData.id] : ''}
                 onChange={(e) => handleResponse(currentQuestionData.id, e.target.value)}
               />
               
@@ -833,7 +1017,7 @@ const EnhancedQuestionnaire = () => {
                     Primary impact area:
                   </p>
                   <div className="flex flex-wrap justify-center gap-4">
-                    {currentQuestionData.options.map((option: any) => (
+                    {currentQuestionData.options.map((option: QuestionOption) => (
                       <button
                         key={option.value}
                         className="btn-ghost px-6 py-3"
@@ -894,7 +1078,7 @@ const EnhancedQuestionnaire = () => {
 
         {/* Premium Question Dots */}
         <div className="flex justify-center mt-12 gap-4">
-          {questions.map((q: any, index: number) => (
+          {questions.map((q: Question, index: number) => (
             <div
               key={q.id}
               className={`question-dot ${
@@ -910,3 +1094,6 @@ const EnhancedQuestionnaire = () => {
 };
 
 export default EnhancedQuestionnaire;
+
+
+

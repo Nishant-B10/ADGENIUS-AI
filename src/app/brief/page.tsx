@@ -1,561 +1,416 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { Check, Video, Image, FileText, Zap, Users, Target, Palette, Copy, Download, Package } from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import { Download, Copy, Zap, Target, Palette, Users, Film, Image as ImageIcon, FileText, Play } from 'lucide-react';
 
-export default function EnhancedBrief() {
-  const [briefData, setBriefData] = useState<any>(null)
-  const [answers, setAnswers] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview')
-  const [generatingAI, setGeneratingAI] = useState(false)
-  const [apiSource, setApiSource] = useState<'claude' | 'fallback'>('fallback')
+interface BriefData {
+  storyboard?: {
+    title?: string;
+    product_name?: string;
+    scenes?: Array<{
+      scene_number: number;
+      duration: string;
+      shot_type: string;
+      action: string;
+      lighting: string;
+      subject: string;
+      brand_integration?: string;
+      product_reference?: string;
+    }>;
+  };
+  photo_ad_prompts?: {
+    [key: string]: {
+      prompt: string;
+      brand_elements?: string;
+      technical_specs?: string;
+      product_focus?: string;
+    };
+  };
+  client_brief?: {
+    product_overview?: string;
+    target_audience_profile?: string;
+    psychology_strategy?: string;
+    creative_guidelines?: string;
+    [key: string]: string | undefined;
+  };
+  ad_storyline?: {
+    [key: string]: string;
+  };
+}
 
-  const generateWithAI = async () => {
-    setGeneratingAI(true)
-    
-    try {
-      console.log('🧠 Generating enhanced AI content with product assets...')
-      
-      const response = await fetch('/api/generate-prompts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          answers: answers
-        })
-      })
-
-      const result = await response.json()
-      console.log('📦 Enhanced API Response:', result)
-
-      setBriefData(result.data)
-      setApiSource(result.success ? 'claude' : 'fallback')
-      
-    } catch (error) {
-      console.error('❌ Enhanced generation failed:', error)
-    } finally {
-      setGeneratingAI(false)
-    }
-  }
+const BriefPage = () => {
+  const [briefData, setBriefData] = useState<BriefData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [copiedSection, setCopiedSection] = useState('');
 
   useEffect(() => {
-    const savedAnswers = localStorage.getItem('questionnaireAnswers')
-    if (savedAnswers) {
-      const parsedAnswers = JSON.parse(savedAnswers)
-      setAnswers(parsedAnswers)
-      setTimeout(() => generateWithAI(), 1000)
-    } else {
-      window.location.href = '/questionnaire'
-    }
-    setLoading(false)
-  }, [])
+    const savedAnswers = localStorage.getItem('questionnaireAnswers');
+    const isCompleted = localStorage.getItem('questionnaireCompleted');
 
-  const copyToClipboard = async (text: string) => {
+    if (!savedAnswers || !isCompleted) {
+      window.location.href = '/questionnaire';
+      return;
+    }
+
+    generateBrief(JSON.parse(savedAnswers));
+  }, []);
+
+  const generateBrief = async (answers: unknown) => {
+    setLoading(true);
+    setError('');
+
     try {
-      await navigator.clipboard.writeText(text)
-      alert('Copied to clipboard!')
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
-  }
+      const response = await fetch('/api/generate-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers })
+      });
 
-  const productAssets = answers?.enhanced_data?.product_assets || {};
-  const audienceData = answers?.enhanced_data?.audience_intelligence || {};
+      const result = await response.json();
+
+      if (result.success) {
+        setBriefData(result.data);
+      } else {
+        setError(result.error || 'Failed to generate brief');
+        if (result.data) {
+          setBriefData(result.data);
+        }
+      }
+    } catch (err) {
+      setError('Network error occurred');
+      console.error('Brief generation error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string, section: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSection(section);
+      setTimeout(() => setCopiedSection(''), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
+
+  const downloadAsJSON = () => {
+    const dataStr = JSON.stringify(briefData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${briefData?.storyboard?.product_name || 'AdGenius'}_marketing_brief.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
       <main className="min-h-screen center-luxury" style={{ background: 'var(--surface-primary)' }}>
         <div className="text-center fade-in-luxury">
-          <div className="w-20 h-20 rounded-full center-luxury mx-auto mb-6 progress-luxury">
-            <div className="progress-fill" style={{ width: '100%' }}></div>
+          <div className="w-32 h-32 rounded-full center-luxury mx-auto mb-8"
+               style={{ 
+                 background: 'linear-gradient(135deg, var(--brand-gold), #F4D03F)',
+                 animation: 'spin 2s linear infinite'
+               }}>
+            <Zap className="w-16 h-16" style={{ color: 'var(--brand-charcoal)' }} />
           </div>
-          <h2 className="text-hero mb-4" style={{ color: 'var(--text-primary)' }}>
-            Analyzing Strategic Intelligence
+          <h2 className="text-display mb-6" style={{ color: 'var(--text-primary)' }}>
+            Generating Your Marketing Brief
           </h2>
-          <p className="text-body-large" style={{ color: 'var(--text-secondary)' }}>
-            Processing brand and audience data...
+          <p className="text-subheading mb-8" style={{ color: 'var(--text-secondary)' }}>
+            Processing brand intelligence with advanced psychology...
           </p>
+          <div className="progress-luxury max-w-lg mx-auto">
+            <div className="progress-fill" style={{ width: '75%' }}></div>
+          </div>
         </div>
       </main>
-    )
+    );
   }
 
+  if (error && !briefData) {
+    return (
+      <main className="min-h-screen center-luxury px-8" style={{ background: 'var(--surface-primary)' }}>
+        <div className="text-center max-w-2xl">
+          <div className="w-24 h-24 rounded-full center-luxury mx-auto mb-8 bg-red-600">
+            <Target className="w-12 h-12 text-white" />
+          </div>
+          <h2 className="text-title mb-6" style={{ color: 'var(--text-primary)' }}>
+            Generation Error
+          </h2>
+          <p className="text-body mb-8" style={{ color: 'var(--text-secondary)' }}>
+            {error}
+          </p>
+          <button 
+            onClick={() => window.location.href = '/questionnaire'}
+            className="btn-primary"
+          >
+            Try Again
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!briefData) {
+    return (
+      <main className="min-h-screen center-luxury">
+        <div className="text-center">
+          <p className="text-body" style={{ color: 'var(--text-secondary)' }}>
+            No brief data available. Please complete the questionnaire first.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/questionnaire'}
+            className="btn-primary mt-4"
+          >
+            Start Questionnaire
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  const productName = briefData.storyboard?.product_name || briefData.client_brief?.product_overview?.split(' ')[0] || 'Your Product';
+
   return (
-    <main className="min-h-screen" style={{ background: 'var(--surface-primary)' }}>
-      <div className="container-luxury section-luxury">
+    <main className="min-h-screen px-8 py-12" style={{ background: 'var(--surface-primary)' }}>
+      <div className="container-luxury">
         
-        {/* Premium Header */}
+        {/* Header */}
         <div className="text-center mb-16">
           <div className="flex-luxury justify-center mb-8">
-            <div className="w-24 h-24 rounded-full center-luxury"
+            <div className="w-20 h-20 rounded-full center-luxury mr-6"
                  style={{ 
                    background: 'linear-gradient(135deg, var(--brand-gold), #F4D03F)',
                    boxShadow: 'var(--shadow-gold)'
                  }}>
-              <FileText className="w-12 h-12" style={{ color: 'var(--brand-charcoal)' }} />
+              <Zap className="w-10 h-10" style={{ color: 'var(--brand-charcoal)' }} />
             </div>
-            <div className="ml-6 text-left">
-              <h1 className="text-display" style={{ color: 'var(--text-primary)' }}>
-                Strategic Brief
+            <div className="text-left">
+              <h1 className="text-display mb-2" style={{ color: 'var(--text-primary)' }}>
+                {productName} Marketing Brief
               </h1>
-              <p className="text-subheading mt-2" style={{ color: 'var(--brand-gold)' }}>
-                {productAssets.name || 'Psychology-powered marketing intelligence'}
+              <p className="text-subheading" style={{ color: 'var(--brand-gold)' }}>
+                AI-Generated Campaign Assets Ready for Production
               </p>
             </div>
           </div>
-
-          {/* Generation Status */}
-          <div className="flex justify-center gap-4 mb-8">
-            <div className={`px-6 py-3 rounded-full text-caption font-medium ${apiSource === 'claude' ? 'bg-green-600 text-white' : 'bg-orange-600 text-white'}`}>
-              {apiSource === 'claude' ? '✅ Claude AI Generated' : '⚠️ Enhanced Fallback'}
-            </div>
-            <button
-              onClick={generateWithAI}
-              disabled={generatingAI}
-              className="btn-primary"
+          
+          <div className="flex justify-center gap-4">
+            <button 
+              onClick={downloadAsJSON}
+              className="btn-secondary flex items-center gap-2"
             >
-              {generatingAI ? 'Generating...' : '🔄 Regenerate with Claude AI'}
+              <Download className="w-5 h-5" />
+              Download Brief
+            </button>
+            <button 
+              onClick={() => window.location.href = '/questionnaire'}
+              className="btn-ghost"
+            >
+              Create New Brief
             </button>
           </div>
         </div>
 
-        {/* Premium Tab Navigation */}
-        <div className="flex justify-center mb-12">
-          <div className="flex p-2 rounded-xl" style={{ background: 'var(--surface-secondary)' }}>
-            {[
-              { id: 'overview', label: 'Overview', icon: <Target className="w-4 h-4" /> },
-              { id: 'storyboard', label: 'Storyboard', icon: <Video className="w-4 h-4" /> },
-              { id: 'photos', label: 'Photo Prompts', icon: <Image className="w-4 h-4" /> },
-              { id: 'storyline', label: 'Ad Storyline', icon: <Zap className="w-4 h-4" /> }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 rounded-lg transition-all duration-300 flex items-center gap-2 font-medium`}
-                style={{
-                  background: activeTab === tab.id ? 'var(--brand-gold)' : 'transparent',
-                  color: activeTab === tab.id ? 'var(--brand-charcoal)' : 'var(--text-secondary)'
-                }}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <div className="grid gap-8 max-w-7xl mx-auto">
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="grid gap-8 max-w-6xl mx-auto">
-            
-            {/* Product Image & Assets Display */}
-            {productAssets.image && (
-              <div className="card-luxury">
-                <div className="flex items-start gap-6">
-                  <Package className="w-8 h-8 mt-1" style={{ color: 'var(--brand-gold)' }} />
-                  <div className="flex-1">
-                    <h2 className="text-title mb-4" style={{ color: 'var(--text-primary)' }}>
-                      Product Assets
-                    </h2>
-                    <div className="flex items-start gap-6">
-                      <div>
-                        <img 
-                          src={productAssets.image} 
-                          alt={`${productAssets.name} reference`}
-                          className="w-48 h-48 object-cover rounded-xl border-2"
-                          style={{ borderColor: 'var(--brand-gold)' }}
-                        />
-                        <p className="text-caption mt-2 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                          Uploaded Product Image
-                        </p>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-heading mb-2" style={{ color: 'var(--brand-gold)' }}>
-                          {productAssets.name}
-                        </h3>
-                        <p className="text-body mb-4" style={{ color: 'var(--text-secondary)' }}>
-                          {productAssets.description}
-                        </p>
-                        <p className="text-caption mb-4" style={{ color: 'var(--text-tertiary)' }}>
-                          Category: {productAssets.category}
-                        </p>
-                        
-                        {/* Brand Colors Display */}
-                        <div className="space-y-2">
-                          <p className="text-caption font-medium" style={{ color: 'var(--brand-gold)' }}>Brand Colors:</p>
-                          <div className="flex gap-4">
-                            {productAssets.brand_colors?.primary && (
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded border-2" style={{ 
-                                  background: productAssets.brand_colors.primary, 
-                                  borderColor: 'var(--surface-elevated)' 
-                                }}></div>
-                                <span className="text-caption" style={{ color: 'var(--text-tertiary)' }}>
-                                  Primary: {productAssets.brand_colors.primary}
-                                </span>
-                              </div>
-                            )}
-                            {productAssets.brand_colors?.secondary && (
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded border-2" style={{ 
-                                  background: productAssets.brand_colors.secondary, 
-                                  borderColor: 'var(--surface-elevated)' 
-                                }}></div>
-                                <span className="text-caption" style={{ color: 'var(--text-tertiary)' }}>
-                                  Secondary: {productAssets.brand_colors.secondary}
-                                </span>
-                              </div>
-                            )}
-                            {productAssets.brand_colors?.accent && (
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded border-2" style={{ 
-                                  background: productAssets.brand_colors.accent, 
-                                  borderColor: 'var(--surface-elevated)' 
-                                }}></div>
-                                <span className="text-caption" style={{ color: 'var(--text-tertiary)' }}>
-                                  Accent: {productAssets.brand_colors.accent}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 p-3 rounded-lg" style={{ background: 'rgba(212, 175, 55, 0.1)' }}>
-                      <p className="text-caption" style={{ color: 'var(--brand-gold)' }}>
-                        ✓ This image and brand assets are integrated into all AI generation prompts
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Product Overview */}
-            {briefData?.client_brief && (
-              <div className="card-luxury">
-                <div className="flex items-start gap-4">
-                  <Target className="w-8 h-8 mt-1" style={{ color: 'var(--brand-gold)' }} />
-                  <div>
-                    <h2 className="text-title mb-4" style={{ color: 'var(--text-primary)' }}>
-                      Product Overview
-                    </h2>
-                    <p className="text-body-large" style={{ color: 'var(--text-secondary)' }}>
-                      {briefData.client_brief.product_overview}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Target Audience Profile */}
-            {briefData?.client_brief && (
-              <div className="card-luxury">
-                <div className="flex items-start gap-4">
-                  <Users className="w-8 h-8 mt-1" style={{ color: 'var(--brand-gold)' }} />
-                  <div className="flex-1">
-                    <h2 className="text-title mb-4" style={{ color: 'var(--text-primary)' }}>
-                      Target Audience Intelligence
-                    </h2>
-                    <p className="text-body-large mb-4" style={{ color: 'var(--text-secondary)' }}>
-                      {briefData.client_brief.target_audience_profile}
-                    </p>
-                    
-                    {/* Audience Data Summary */}
-                    {audienceData.demographics && (
-                      <div className="grid md:grid-cols-3 gap-4 mt-6">
-                        {audienceData.demographics.age_ranges?.length > 0 && (
-                          <div className="p-4 rounded-lg" style={{ background: 'var(--surface-secondary)' }}>
-                            <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Age Groups:</p>
-                            <p className="text-body" style={{ color: 'var(--text-primary)' }}>
-                              {audienceData.demographics.age_ranges.join(', ')}
-                            </p>
-                          </div>
-                        )}
-                        {audienceData.demographics.income_levels?.length > 0 && (
-                          <div className="p-4 rounded-lg" style={{ background: 'var(--surface-secondary)' }}>
-                            <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Income Brackets:</p>
-                            <p className="text-body" style={{ color: 'var(--text-primary)' }}>
-                              {audienceData.demographics.income_levels.join(', ')}
-                            </p>
-                          </div>
-                        )}
-                        {audienceData.psychographics?.core_values?.length > 0 && (
-                          <div className="p-4 rounded-lg" style={{ background: 'var(--surface-secondary)' }}>
-                            <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Core Values:</p>
-                            <p className="text-body" style={{ color: 'var(--text-primary)' }}>
-                              {audienceData.psychographics.core_values.join(', ')}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Creative Guidelines */}
-            {briefData?.client_brief && (
-              <div className="card-luxury">
-                <div className="flex items-start gap-4">
-                  <Palette className="w-8 h-8 mt-1" style={{ color: 'var(--brand-gold)' }} />
-                  <div>
-                    <h2 className="text-title mb-4" style={{ color: 'var(--text-primary)' }}>
-                      Creative Guidelines
-                    </h2>
-                    <p className="text-body-large" style={{ color: 'var(--text-secondary)' }}>
-                      {briefData.client_brief.creative_guidelines}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Storyboard Tab */}
-        {activeTab === 'storyboard' && briefData?.storyboard && (
-          <div className="max-w-6xl mx-auto space-y-6">
-            <div className="card-luxury">
-              <div className="flex items-center gap-3 mb-6">
-                <Video className="w-6 h-6" style={{ color: 'var(--brand-gold)' }} />
-                <div>
+          {/* Video Storyboard */}
+          {briefData.storyboard && (
+            <section className="card-question">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <Film className="w-8 h-8" style={{ color: 'var(--brand-gold)' }} />
                   <h2 className="text-title" style={{ color: 'var(--text-primary)' }}>
-                    {briefData.storyboard.title}
+                    Video Storyboard - {briefData.storyboard.title}
                   </h2>
-                  {briefData.storyboard.product_name && (
-                    <p className="text-caption" style={{ color: 'var(--brand-gold)' }}>
-                      Product: {briefData.storyboard.product_name}
-                    </p>
-                  )}
                 </div>
+                <button
+                  onClick={() => copyToClipboard(JSON.stringify(briefData.storyboard, null, 2), 'storyboard')}
+                  className="btn-ghost flex items-center gap-2 text-sm"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copiedSection === 'storyboard' ? 'Copied!' : 'Copy'}
+                </button>
               </div>
               
               <div className="grid gap-6">
-                {briefData.storyboard.scenes?.map((scene: any, index: number) => (
-                  <div key={index} className="border rounded-xl p-6" style={{ borderColor: 'var(--surface-elevated)', background: 'var(--surface-secondary)' }}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full center-luxury" style={{ background: 'var(--brand-gold)', color: 'var(--brand-charcoal)' }}>
-                        <span className="font-bold text-lg">{scene.scene_number}</span>
+                {briefData.storyboard.scenes?.map((scene, index) => (
+                  <div key={index} className="bg-slate-700 p-6 rounded-xl">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-full center-luxury bg-yellow-400 text-slate-900 font-bold">
+                        {scene.scene_number}
                       </div>
                       <div>
-                        <h3 className="text-heading" style={{ color: 'var(--text-primary)' }}>
+                        <h3 className="text-heading font-semibold" style={{ color: 'var(--text-primary)' }}>
                           Scene {scene.scene_number}
                         </h3>
-                        <p className="text-caption" style={{ color: 'var(--brand-gold)' }}>
+                        <p className="text-body" style={{ color: 'var(--brand-gold)' }}>
                           {scene.duration}
                         </p>
                       </div>
                     </div>
-                    
-                    <div className="grid md:grid-cols-2 gap-4 text-body mb-4">
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="font-medium mb-1" style={{ color: 'var(--brand-gold)' }}>Shot & Movement:</p>
-                        <p style={{ color: 'var(--text-secondary)' }}>
-                          {scene.shot_type} {scene.camera_movement ? `- ${scene.camera_movement}` : ''}
-                        </p>
+                        <strong style={{ color: 'var(--brand-gold)' }}>Shot:</strong>
+                        <p style={{ color: 'var(--text-secondary)' }}>{scene.shot_type}</p>
                       </div>
                       <div>
-                        <p className="font-medium mb-1" style={{ color: 'var(--brand-gold)' }}>Lighting:</p>
+                        <strong style={{ color: 'var(--brand-gold)' }}>Action:</strong>
+                        <p style={{ color: 'var(--text-secondary)' }}>{scene.action}</p>
+                      </div>
+                      <div>
+                        <strong style={{ color: 'var(--brand-gold)' }}>Lighting:</strong>
                         <p style={{ color: 'var(--text-secondary)' }}>{scene.lighting}</p>
                       </div>
                       <div>
-                        <p className="font-medium mb-1" style={{ color: 'var(--brand-gold)' }}>Subject & Action:</p>
-                        <p style={{ color: 'var(--text-secondary)' }}>{scene.subject} - {scene.action}</p>
-                      </div>
-                      <div>
-                        <p className="font-medium mb-1" style={{ color: 'var(--brand-gold)' }}>Audio:</p>
-                        <p style={{ color: 'var(--text-secondary)' }}>{scene.audio}</p>
+                        <strong style={{ color: 'var(--brand-gold)' }}>Subject:</strong>
+                        <p style={{ color: 'var(--text-secondary)' }}>{scene.subject}</p>
                       </div>
                     </div>
-                    
-                    <div className="pt-4 border-t" style={{ borderColor: 'var(--surface-elevated)' }}>
-                      <p className="font-medium mb-1" style={{ color: 'var(--brand-gold)' }}>Brand Integration:</p>
-                      <p className="text-body" style={{ color: 'var(--text-secondary)' }}>{scene.brand_integration}</p>
-                      {scene.product_reference && (
-                        <div className="mt-2">
-                          <p className="font-medium mb-1" style={{ color: 'var(--brand-gold)' }}>Product Reference:</p>
-                          <p className="text-body" style={{ color: 'var(--text-secondary)' }}>{scene.product_reference}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Photo Ad Prompts */}
+          {briefData.photo_ad_prompts && (
+            <section className="card-question">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <ImageIcon className="w-8 h-8" style={{ color: 'var(--brand-gold)' }} />
+                  <h2 className="text-title" style={{ color: 'var(--text-primary)' }}>
+                    Photo Advertisement Prompts
+                  </h2>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(JSON.stringify(briefData.photo_ad_prompts, null, 2), 'photos')}
+                  className="btn-ghost flex items-center gap-2 text-sm"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copiedSection === 'photos' ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                {Object.entries(briefData.photo_ad_prompts).map(([key, prompt], index) => (
+                  <div key={key} className="bg-slate-700 p-6 rounded-xl">
+                    <h3 className="text-heading capitalize mb-4" style={{ color: 'var(--brand-gold)' }}>
+                      {key.replace(/_/g, ' ')}
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <strong style={{ color: 'var(--text-primary)' }}>Prompt:</strong>
+                        <p style={{ color: 'var(--text-secondary)' }} className="mt-1">
+                          {prompt.prompt}
+                        </p>
+                      </div>
+                      {prompt.brand_elements && (
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)' }}>Brand Elements:</strong>
+                          <p style={{ color: 'var(--text-secondary)' }} className="mt-1">
+                            {prompt.brand_elements}
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-              
-              <div className="mt-8 pt-6 border-t flex gap-4" style={{ borderColor: 'var(--surface-elevated)' }}>
-                <button 
-                  onClick={() => copyToClipboard(JSON.stringify(briefData.storyboard, null, 2))}
-                  className="btn-secondary"
-                >
-                  <Copy className="w-4 h-4" />
-                  Copy Storyboard JSON
-                </button>
-                <button 
-                  onClick={() => copyToClipboard(briefData.storyboard.scenes.map((s: any) => `Scene ${s.scene_number}: ${s.action}`).join('\n'))}
-                  className="btn-ghost"
-                >
-                  Copy Scene Summary
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            </section>
+          )}
 
-        {/* Photo Prompts Tab */}
-        {activeTab === 'photos' && briefData?.photo_ad_prompts && (
-          <div className="max-w-6xl mx-auto space-y-6">
-            {Object.entries(briefData.photo_ad_prompts).map(([type, prompt]: [string, any]) => (
-              <div key={type} className="card-luxury">
-                <div className="flex items-center gap-3 mb-6">
-                  <Image className="w-6 h-6" style={{ color: 'var(--brand-gold)' }} />
-                  <h2 className="text-title capitalize" style={{ color: 'var(--text-primary)' }}>
-                    {type.replace('_', ' ')} Photo
+          {/* Client Brief */}
+          {briefData.client_brief && (
+            <section className="card-question">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <FileText className="w-8 h-8" style={{ color: 'var(--brand-gold)' }} />
+                  <h2 className="text-title" style={{ color: 'var(--text-primary)' }}>
+                    Strategic Brief
                   </h2>
                 </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Nano Banana Prompt:</p>
-                    <p className="text-body-large p-4 rounded-lg" style={{ background: 'var(--surface-secondary)', color: 'var(--text-primary)' }}>
-                      {prompt.prompt}
-                    </p>
-                  </div>
-                  
-                  {prompt.technical_specs && (
-                    <div>
-                      <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Technical Specifications:</p>
-                      <p className="text-body p-4 rounded-lg" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                        {prompt.technical_specs}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {prompt.brand_elements && (
-                    <div>
-                      <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Brand Integration:</p>
-                      <p className="text-body p-4 rounded-lg" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                        {prompt.brand_elements}
-                      </p>
-                    </div>
-                  )}
-
-                  {prompt.product_focus && (
-                    <div>
-                      <p className="font-medium mb-2" style={{ color: 'var(--brand-gold)' }}>Product Focus:</p>
-                      <p className="text-body p-4 rounded-lg" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                        {prompt.product_focus}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="mt-6 pt-4 border-t flex gap-4" style={{ borderColor: 'var(--surface-elevated)' }}>
-                  <button 
-                    onClick={() => copyToClipboard(prompt.prompt)}
-                    className="btn-secondary"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Copy {type.replace('_', ' ')} Prompt
-                  </button>
-                  <button 
-                    onClick={() => copyToClipboard(JSON.stringify(prompt, null, 2))}
-                    className="btn-ghost"
-                  >
-                    Copy Complete Spec
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Storyline Tab */}
-        {activeTab === 'storyline' && briefData?.ad_storyline && (
-          <div className="max-w-6xl mx-auto">
-            <div className="card-luxury">
-              <div className="flex items-center gap-3 mb-6">
-                <Zap className="w-6 h-6" style={{ color: 'var(--brand-gold)' }} />
-                <h2 className="text-title" style={{ color: 'var(--text-primary)' }}>
-                  Advertisement Storyline
-                </h2>
+                <button
+                  onClick={() => copyToClipboard(JSON.stringify(briefData.client_brief, null, 2), 'brief')}
+                  className="btn-ghost flex items-center gap-2 text-sm"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copiedSection === 'brief' ? 'Copied!' : 'Copy'}
+                </button>
               </div>
               
               <div className="space-y-6">
-                {Object.entries(briefData.ad_storyline).map(([key, value]: [string, any]) => (
-                  <div key={key}>
-                    <h3 className="text-heading mb-3 capitalize" style={{ color: 'var(--brand-gold)' }}>
-                      {key.replace('_', ' ')}
+                {Object.entries(briefData.client_brief).map(([key, value]) => (
+                  <div key={key} className="bg-slate-700 p-6 rounded-xl">
+                    <h3 className="text-heading capitalize mb-3" style={{ color: 'var(--brand-gold)' }}>
+                      {key.replace(/_/g, ' ')}
                     </h3>
-                    <p className="text-body-large p-4 rounded-lg" style={{ background: 'var(--surface-secondary)', color: 'var(--text-secondary)' }}>
-                      {value}
+                    <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">
+                      {typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
                     </p>
                   </div>
                 ))}
               </div>
-              
-              <div className="mt-8 pt-6 border-t flex gap-4" style={{ borderColor: 'var(--surface-elevated)' }}>
-                <button 
-                  onClick={() => copyToClipboard(JSON.stringify(briefData.ad_storyline, null, 2))}
-                  className="btn-secondary"
+            </section>
+          )}
+
+          {/* Ad Storyline */}
+          {briefData.ad_storyline && (
+            <section className="card-question">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <Play className="w-8 h-8" style={{ color: 'var(--brand-gold)' }} />
+                  <h2 className="text-title" style={{ color: 'var(--text-primary)' }}>
+                    Campaign Storyline
+                  </h2>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(JSON.stringify(briefData.ad_storyline, null, 2), 'storyline')}
+                  className="btn-ghost flex items-center gap-2 text-sm"
                 >
                   <Copy className="w-4 h-4" />
-                  Copy Complete Storyline
-                </button>
-                <button 
-                  onClick={() => copyToClipboard(briefData.ad_storyline.narrative_arc)}
-                  className="btn-ghost"
-                >
-                  Copy Narrative Arc
+                  {copiedSection === 'storyline' ? 'Copied!' : 'Copy'}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+              
+              <div className="space-y-6">
+                {Object.entries(briefData.ad_storyline).map(([key, value]) => (
+                  <div key={key} className="bg-slate-700 p-6 rounded-xl">
+                    <h3 className="text-heading capitalize mb-3" style={{ color: 'var(--brand-gold)' }}>
+                      {key.replace(/_/g, ' ')}
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)' }} className="leading-relaxed">
+                      {typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
 
-        {/* Premium Action Buttons */}
-        <div className="flex justify-center gap-6 mt-16">
-          <Link href="/questionnaire">
-            <button className="btn-secondary px-8 py-4">
-              ← Edit Intelligence Profile
-            </button>
-          </Link>
-          
+        {/* Footer CTA */}
+        <div className="text-center mt-16 pt-12" style={{ borderTop: `1px solid var(--surface-elevated)` }}>
+          <h3 className="text-heading mb-4" style={{ color: 'var(--brand-gold)' }}>
+            Ready to Generate Content?
+          </h3>
+          <p className="text-body mb-8" style={{ color: 'var(--text-secondary)' }}>
+            Copy these prompts to Veo 3 and Nano Banana for professional content generation
+          </p>
           <button 
-            onClick={() => {
-              const exportData = {
-                product_assets: productAssets,
-                audience_intelligence: audienceData,
-                generated_content: briefData,
-                generation_info: {
-                  source: apiSource,
-                  timestamp: new Date().toISOString(),
-                  product_name: productAssets.name
-                }
-              }
-              const dataStr = JSON.stringify(exportData, null, 2)
-              const dataBlob = new Blob([dataStr], {type: 'application/json'})
-              const url = URL.createObjectURL(dataBlob)
-              const link = document.createElement('a')
-              link.href = url
-              link.download = `${productAssets.name || 'adgenius'}-complete-brief.json`
-              link.click()
-            }}
-            className="btn-secondary px-8 py-4"
+            onClick={() => window.location.href = '/questionnaire'}
+            className="btn-primary"
           >
-            <Download className="w-4 h-4" />
-            Export Complete Brief
-          </button>
-          
-          <button className="btn-primary px-8 py-4">
-            🚀 Generate Campaign Assets
+            Create Another Brief
           </button>
         </div>
       </div>
     </main>
-  )
-}
+  );
+};
+
+export default BriefPage;
